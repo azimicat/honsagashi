@@ -759,6 +759,11 @@
         codeReader = new ZXing.BrowserMultiFormatReader();
         const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
 
+        if (!devices || devices.length === 0) {
+          alert('カメラが見つかりません。\nスマートフォンでお試しください。');
+          return;
+        }
+
         // 背面カメラ優先
         const back = devices.find(d =>
           /back|rear|environment/i.test(d.label)
@@ -783,7 +788,16 @@
         });
       } catch (e) {
         stopScanner();
-        alert('カメラの起動に失敗しました。\nHTTPS環境でカメラの許可を確認してください。');
+        const name = e?.name ?? '';
+        if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+          alert('カメラが見つかりません。\nスマートフォンでお試しください。');
+        } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          alert('カメラへのアクセスが拒否されました。\nブラウザの設定でカメラを許可してください。');
+        } else if (name === 'NotReadableError') {
+          alert('カメラが他のアプリに使用されています。\n他のアプリを閉じてから再試行してください。');
+        } else {
+          alert('カメラの起動に失敗しました。\nHTTPS環境でカメラの許可を確認してください。');
+        }
       }
     }
 
