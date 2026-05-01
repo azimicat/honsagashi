@@ -908,8 +908,8 @@
         }
         nativeScanTimer = setTimeout(tick, 300);
       };
-      // 映像メタデータ取得後に開始
-      scannerVideo.addEventListener('loadedmetadata', () => { nativeScanTimer = setTimeout(tick, 300); }, { once: true });
+      // play() 解決時点でメタデータは既に取得済みのため直接開始
+      nativeScanTimer = setTimeout(tick, 100);
     }
 
     async function startZXingScanner(videoConstraints, scannerStatus) {
@@ -945,7 +945,7 @@
         }
         nativeScanTimer = setTimeout(tick, 300);
       };
-      scannerVideo.addEventListener('loadedmetadata', () => { nativeScanTimer = setTimeout(tick, 300); }, { once: true });
+      nativeScanTimer = setTimeout(tick, 100);
     }
 
     function stopScanner() {
