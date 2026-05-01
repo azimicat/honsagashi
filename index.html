@@ -771,23 +771,34 @@
           return;
         }
 
-        codeReader = new ZXing.BrowserMultiFormatReader();
+        // EAN-13 に絞り、より粘り強く読むヒントを設定
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        // 300ms ごとにスキャン（デフォルトは 500ms）
+        codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
 
         // 背面カメラ優先
         const back = videoDevices.find(d =>
           /back|rear|environment/i.test(d.label)
         ) ?? videoDevices[videoDevices.length - 1];
 
-        const deviceId = back?.deviceId ?? undefined;
+        const deviceId = back?.deviceId;
 
         scannerContainer.classList.add('active');
         scanBtn.classList.add('scanning');
         scanning = true;
 
-        await codeReader.decodeFromVideoDevice(deviceId, scannerVideo, (result, err) => {
+        // 高解像度リクエストでバーコード検出率を上げる
+        const constraints = {
+          video: deviceId
+            ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 } }
+        };
+
+        await codeReader.decodeFromConstraints(constraints, scannerVideo, (result, err) => {
           if (result) {
             const text = result.getText();
-            // ISBN-13: 978 または 979 で始まる EAN-13
             if (/^97[89]\d{10}$/.test(text)) {
               stopScanner();
               isbnInput.value = text;
