@@ -586,7 +586,7 @@
     isbnInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') doSearch();
     });
-    searchBtn.addEventListener('click', doSearch);
+    searchBtn.addEventListener('click', () => doSearch());
 
     async function doSearch(isbnOverride) {
       const raw = isbnOverride ?? isbnInput.value;
