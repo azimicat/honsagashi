@@ -763,6 +763,45 @@
     let nativeScanTimer = null;
     let scanning = false;
 
+    // フレーム内切り出し用キャンバス
+    const cropCanvas = document.createElement('canvas');
+    const cropCtx = cropCanvas.getContext('2d');
+
+    // object-fit:cover を考慮して枠(220x80)に対応する映像ピクセル領域を返す
+    function getFrameCrop() {
+      const vw = scannerVideo.videoWidth;
+      const vh = scannerVideo.videoHeight;
+      if (!vw || !vh) return null;
+
+      const ew = scannerVideo.offsetWidth;
+      const eh = scannerVideo.offsetHeight;
+      const scale = Math.max(ew / vw, eh / vh);
+      // 映像が要素からはみ出す量（負値 = はみ出し）
+      const ox = (ew - vw * scale) / 2;
+      const oy = (eh - vh * scale) / 2;
+
+      // 枠の表示座標（要素内・中央揃え）
+      const fw = 220, fh = 80;
+      const fx = (ew - fw) / 2;
+      const fy = (eh - fh) / 2;
+
+      // 映像ピクセル座標に変換
+      const sx = Math.max(0, (fx - ox) / scale);
+      const sy = Math.max(0, (fy - oy) / scale);
+      const sw = Math.min(fw / scale, vw - sx);
+      const sh = Math.min(fh / scale, vh - sy);
+      return { sx, sy, sw, sh };
+    }
+
+    function drawCroppedFrame() {
+      const c = getFrameCrop();
+      if (!c || c.sw <= 0 || c.sh <= 0) return false;
+      cropCanvas.width = Math.round(c.sw);
+      cropCanvas.height = Math.round(c.sh);
+      cropCtx.drawImage(scannerVideo, c.sx, c.sy, c.sw, c.sh, 0, 0, cropCanvas.width, cropCanvas.height);
+      return true;
+    }
+
     scanBtn.addEventListener('click', () => {
       if (scanning) stopScanner();
       else startScanner();
@@ -797,7 +836,6 @@
         const scannerStatus = document.getElementById('scanner-status');
         scannerStatus.textContent = 'バーコードを枠内に合わせてください';
 
-        // Android Chrome は BarcodeDetector API（MLKit）が使えるので優先する
         if ('BarcodeDetector' in window) {
           await startNativeScanner(videoConstraints, scannerStatus);
         } else {
@@ -825,23 +863,28 @@
       scannerVideo.srcObject = nativeStream;
       await scannerVideo.play();
 
-      nativeScanTimer = setInterval(async () => {
+      const tick = async () => {
         if (!scanning) return;
-        try {
-          const barcodes = await detector.detect(scannerVideo);
-          for (const bc of barcodes) {
-            const text = bc.rawValue;
-            if (/^97[89]\d{10}$/.test(text)) {
-              stopScanner();
-              isbnInput.value = text;
-              doSearch(text);
-              return;
-            } else if (text) {
-              scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+        if (drawCroppedFrame()) {
+          try {
+            const barcodes = await detector.detect(cropCanvas);
+            for (const bc of barcodes) {
+              const text = bc.rawValue;
+              if (/^97[89]\d{10}$/.test(text)) {
+                stopScanner();
+                isbnInput.value = text;
+                doSearch(text);
+                return;
+              } else if (text) {
+                scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+              }
             }
-          }
-        } catch {}
-      }, 300);
+          } catch {}
+        }
+        nativeScanTimer = setTimeout(tick, 300);
+      };
+      // 映像メタデータ取得後に開始
+      scannerVideo.addEventListener('loadedmetadata', () => { nativeScanTimer = setTimeout(tick, 300); }, { once: true });
     }
 
     async function startZXingScanner(videoConstraints, scannerStatus) {
@@ -851,24 +894,38 @@
       }
       const hints = new Map();
       hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-      codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
+      codeReader = new ZXing.BrowserMultiFormatReader(hints);
 
-      await codeReader.decodeFromConstraints({ video: videoConstraints }, scannerVideo, (result) => {
-        if (!result) return;
-        const text = result.getText();
-        if (/^97[89]\d{10}$/.test(text)) {
-          stopScanner();
-          isbnInput.value = text;
-          doSearch(text);
-        } else {
-          scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+      nativeStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+      scannerVideo.srcObject = nativeStream;
+      await scannerVideo.play();
+
+      const tick = () => {
+        if (!scanning) return;
+        if (drawCroppedFrame()) {
+          try {
+            const result = codeReader.decode(cropCanvas);
+            if (result) {
+              const text = result.getText();
+              if (/^97[89]\d{10}$/.test(text)) {
+                stopScanner();
+                isbnInput.value = text;
+                doSearch(text);
+                return;
+              } else {
+                scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+              }
+            }
+          } catch {} // ZXing は未検出時に例外を投げる
         }
-      });
+        nativeScanTimer = setTimeout(tick, 300);
+      };
+      scannerVideo.addEventListener('loadedmetadata', () => { nativeScanTimer = setTimeout(tick, 300); }, { once: true });
     }
 
     function stopScanner() {
       if (nativeScanTimer) {
-        clearInterval(nativeScanTimer);
+        clearTimeout(nativeScanTimer);
         nativeScanTimer = null;
       }
       if (nativeStream) {
