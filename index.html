@@ -796,11 +796,12 @@
         codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
 
         // 背面カメラ優先
+        // iOS では許可前にラベルが取得できないため、ラベルなしの場合は facingMode を使う
         const back = videoDevices.find(d =>
           /back|rear|environment/i.test(d.label)
-        ) ?? videoDevices[videoDevices.length - 1];
-
-        const deviceId = back?.deviceId;
+        );
+        const hasLabel = back != null;
+        const deviceId = hasLabel ? back.deviceId : null;
 
         scannerContainer.classList.add('active');
         scanBtn.classList.add('scanning');
@@ -809,11 +810,10 @@
         const scannerStatus = document.getElementById('scanner-status');
         scannerStatus.textContent = 'バーコードを枠内に合わせてください';
 
-        // 高解像度リクエストでバーコード検出率を上げる
         const constraints = {
           video: deviceId
             ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-            : { width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
         };
 
         await codeReader.decodeFromConstraints(constraints, scannerVideo, (result, err) => {
