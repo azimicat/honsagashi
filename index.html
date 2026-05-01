@@ -763,21 +763,20 @@
       }
 
       try {
-        // まずカメラ許可を取得してからデバイス一覧を取得
-        await navigator.mediaDevices.getUserMedia({ video: true });
+          const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
 
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-
-        if (!devices || devices.length === 0) {
+        if (videoDevices.length === 0) {
           alert('カメラが見つかりません。\nスマートフォンでお試しください。');
           return;
         }
 
+        codeReader = new ZXing.BrowserMultiFormatReader();
+
         // 背面カメラ優先
-        const back = devices.find(d =>
+        const back = videoDevices.find(d =>
           /back|rear|environment/i.test(d.label)
-        ) ?? devices[devices.length - 1];
+        ) ?? videoDevices[videoDevices.length - 1];
 
         const deviceId = back?.deviceId ?? undefined;
 
