@@ -432,6 +432,15 @@
       animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    #scanner-status {
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      text-align: center;
+      font-size: 0.82rem;
+      padding: 6px 12px;
+      min-height: 28px;
+    }
   </style>
 </head>
 <body>
@@ -470,6 +479,7 @@
           <div class="scanner-frame"></div>
         </div>
         <button class="scanner-close" id="scanner-close">&#10005;</button>
+        <div id="scanner-status"></div>
       </div>
 
       <div class="result-area" id="result-area">
@@ -796,6 +806,9 @@
         scanBtn.classList.add('scanning');
         scanning = true;
 
+        const scannerStatus = document.getElementById('scanner-status');
+        scannerStatus.textContent = 'バーコードを枠内に合わせてください';
+
         // 高解像度リクエストでバーコード検出率を上げる
         const constraints = {
           video: deviceId
@@ -810,6 +823,9 @@
               stopScanner();
               isbnInput.value = text;
               doSearch(text);
+            } else {
+              // ISBNではないバーコードを検出（価格コードなど）
+              scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
             }
           }
         });
