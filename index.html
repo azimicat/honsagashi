@@ -759,6 +759,8 @@
     const scannerClose = document.getElementById('scanner-close');
 
     let codeReader = null;
+    let nativeStream = null;
+    let nativeScanTimer = null;
     let scanning = false;
 
     scanBtn.addEventListener('click', () => {
@@ -768,19 +770,13 @@
     scannerClose.addEventListener('click', stopScanner);
 
     async function startScanner() {
-      if (!window.ZXing) {
-        alert('ZXingライブラリの読み込みに失敗しました。');
-        return;
-      }
-
-      // mediaDevices API が使えない環境（HTTP など）
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('カメラAPIが利用できません。\nHTTPS環境でお試しください。');
         return;
       }
 
       try {
-          const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
 
         if (videoDevices.length === 0) {
@@ -788,18 +784,11 @@
           return;
         }
 
-        // フォーマット制限はせず ZXing に任せる（Android Chrome との相性問題を回避）
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
-
-        // 背面カメラ優先
-        // iOS では許可前にラベルが取得できないため、ラベルなしの場合は facingMode を使う
-        const back = videoDevices.find(d =>
-          /back|rear|environment/i.test(d.label)
-        );
-        const hasLabel = back != null;
-        const deviceId = hasLabel ? back.deviceId : null;
+        const back = videoDevices.find(d => /back|rear|environment/i.test(d.label));
+        const deviceId = back?.deviceId ?? null;
+        const videoConstraints = deviceId
+          ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } };
 
         scannerContainer.classList.add('active');
         scanBtn.classList.add('scanning');
@@ -808,25 +797,12 @@
         const scannerStatus = document.getElementById('scanner-status');
         scannerStatus.textContent = 'バーコードを枠内に合わせてください';
 
-        const constraints = {
-          video: deviceId
-            ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-            : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-        };
-
-        await codeReader.decodeFromConstraints(constraints, scannerVideo, (result, err) => {
-          if (result) {
-            const text = result.getText();
-            if (/^97[89]\d{10}$/.test(text)) {
-              stopScanner();
-              isbnInput.value = text;
-              doSearch(text);
-            } else {
-              // ISBNではないバーコードを検出（価格コードなど）
-              scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
-            }
-          }
-        });
+        // Android Chrome は BarcodeDetector API（MLKit）が使えるので優先する
+        if ('BarcodeDetector' in window) {
+          await startNativeScanner(videoConstraints, scannerStatus);
+        } else {
+          await startZXingScanner(videoConstraints, scannerStatus);
+        }
       } catch (e) {
         stopScanner();
         console.error('Camera error:', e.name, e.message);
@@ -843,7 +819,63 @@
       }
     }
 
+    async function startNativeScanner(videoConstraints, scannerStatus) {
+      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128'] });
+      nativeStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+      scannerVideo.srcObject = nativeStream;
+      await scannerVideo.play();
+
+      nativeScanTimer = setInterval(async () => {
+        if (!scanning) return;
+        try {
+          const barcodes = await detector.detect(scannerVideo);
+          for (const bc of barcodes) {
+            const text = bc.rawValue;
+            if (/^97[89]\d{10}$/.test(text)) {
+              stopScanner();
+              isbnInput.value = text;
+              doSearch(text);
+              return;
+            } else if (text) {
+              scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+            }
+          }
+        } catch {}
+      }, 300);
+    }
+
+    async function startZXingScanner(videoConstraints, scannerStatus) {
+      if (!window.ZXing) {
+        alert('ZXingライブラリの読み込みに失敗しました。');
+        return;
+      }
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
+
+      await codeReader.decodeFromConstraints({ video: videoConstraints }, scannerVideo, (result) => {
+        if (!result) return;
+        const text = result.getText();
+        if (/^97[89]\d{10}$/.test(text)) {
+          stopScanner();
+          isbnInput.value = text;
+          doSearch(text);
+        } else {
+          scannerStatus.textContent = `ISBN以外のバーコードです（${text.slice(0,4)}…）。上段のISBNバーコードを狙ってください`;
+        }
+      });
+    }
+
     function stopScanner() {
+      if (nativeScanTimer) {
+        clearInterval(nativeScanTimer);
+        nativeScanTimer = null;
+      }
+      if (nativeStream) {
+        nativeStream.getTracks().forEach(t => t.stop());
+        nativeStream = null;
+        scannerVideo.srcObject = null;
+      }
       if (codeReader) {
         codeReader.reset();
         codeReader = null;
