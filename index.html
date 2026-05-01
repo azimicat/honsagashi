@@ -643,7 +643,7 @@
       card.className = 'book-card';
 
       const coverEl = cover
-        ? `<img src="${cover}" alt="書影" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\"book-cover-placeholder\\">&#128218;</div>'">`
+        ? `<img class="book-cover-img" src="${esc(cover)}" alt="書影" loading="lazy">`
         : `<div class="book-cover-placeholder">&#128218;</div>`;
 
       card.innerHTML = `
@@ -665,6 +665,13 @@
       `;
 
       resultArea.appendChild(card);
+
+      const coverImg = card.querySelector('.book-cover-img');
+      if (coverImg) {
+        coverImg.addEventListener('error', () => {
+          coverImg.parentNode.innerHTML = '<div class="book-cover-placeholder">&#128218;</div>';
+        });
+      }
 
       document.getElementById('fav-btn').addEventListener('click', () => {
         toggleFav(isbn, item);
@@ -891,7 +898,7 @@
       el.className = 'book-list-item';
 
       const thumbEl = cover
-        ? `<img class="book-list-thumb" src="${cover}" alt="" loading="lazy" onerror="this.outerHTML='<div class=\\"book-list-thumb-placeholder\\">&#128218;</div>'">`
+        ? `<img class="book-list-thumb" src="${esc(cover)}" alt="" loading="lazy">`
         : `<div class="book-list-thumb-placeholder">&#128218;</div>`;
 
       el.innerHTML = `
@@ -903,6 +910,13 @@
         <span class="book-list-time">${timeAgo(ts)}</span>
         <button class="btn-delete-item" data-isbn="${esc(isbn)}" title="削除">&#10005;</button>
       `;
+
+      const thumb = el.querySelector('.book-list-thumb');
+      if (thumb) {
+        thumb.addEventListener('error', () => {
+          thumb.outerHTML = '<div class="book-list-thumb-placeholder">&#128218;</div>';
+        });
+      }
 
       // アイテムクリックで検索タブへ
       el.addEventListener('click', e => {
