@@ -227,6 +227,14 @@
       font-size: 1.8rem;
     }
     .book-meta { flex: 1; min-width: 0; }
+    .book-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .book-title a:hover {
+      text-decoration: underline;
+      color: var(--accent);
+    }
     .book-title {
       font-family: var(--font-heading);
       font-size: 1.05rem;
@@ -660,7 +668,7 @@
         <div class="book-inner">
           <div class="book-cover">${coverEl}</div>
           <div class="book-meta">
-            <div class="book-title">${esc(title + volume)}</div>
+            <div class="book-title"><a href="https://www.hanmoto.com/bd/isbn/${esc(isbn)}" target="_blank" rel="noopener noreferrer">${esc(title + volume)}</a></div>
             ${series ? `<div class="book-series">${esc(series)}</div>` : ''}
             ${author ? `<div class="book-author">${esc(author)}</div>` : ''}
             ${publisher ? `<div class="book-publisher">${esc(publisher)}</div>` : ''}
