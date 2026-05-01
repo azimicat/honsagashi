@@ -1,0 +1,24 @@
+{
+  "name": "本をさがす",
+  "short_name": "本をさがす",
+  "description": "ISBNから書籍情報を検索するアプリ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#faf8f4",
+  "theme_color": "#7c4d2a",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
