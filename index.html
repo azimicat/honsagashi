@@ -643,7 +643,7 @@
       const author = s.author || '';
       const publisher = s.publisher || '';
       const pubdate = formatPubdate(s.pubdate || '');
-      const cover = s.cover || '';
+      const cover = resolveCover(onix, s);
 
       const description = resolveDescription(onix, hanmoto);
       const favActive = isFav(isbn);
@@ -734,6 +734,19 @@
       if (hanmoto.kaisetsu105w) return hanmoto.kaisetsu105w;
       if (hanmoto.hanmotokarahitokoto) return hanmoto.hanmotokarahitokoto;
       return '';
+    }
+
+    function resolveCover(onix, summary) {
+      try {
+        const resources = onix.CollateralDetail?.SupportingResource ?? [];
+        for (const r of resources) {
+          if (r.ResourceContentType === '01') {
+            const link = r.ResourceVersion?.[0]?.ResourceLink;
+            if (link) return link;
+          }
+        }
+      } catch {}
+      return summary.cover || '';
     }
 
     function formatPubdate(s) {
@@ -995,7 +1008,7 @@
       const s = data.summary ?? {};
       const title = s.title || isbn;
       const author = s.author || s.publisher || '';
-      const cover = s.cover || '';
+      const cover = resolveCover(data.onix ?? {}, s);
 
       const el = document.createElement('div');
       el.className = 'book-list-item';
