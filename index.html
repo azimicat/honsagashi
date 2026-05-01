@@ -755,7 +755,17 @@
         alert('ZXingライブラリの読み込みに失敗しました。');
         return;
       }
+
+      // mediaDevices API が使えない環境（HTTP など）
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('カメラAPIが利用できません。\nHTTPS環境でお試しください。');
+        return;
+      }
+
       try {
+        // まずカメラ許可を取得してからデバイス一覧を取得
+        await navigator.mediaDevices.getUserMedia({ video: true });
+
         codeReader = new ZXing.BrowserMultiFormatReader();
         const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
 
@@ -788,6 +798,7 @@
         });
       } catch (e) {
         stopScanner();
+        console.error('Camera error:', e.name, e.message);
         const name = e?.name ?? '';
         if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
           alert('カメラが見つかりません。\nスマートフォンでお試しください。');
@@ -796,7 +807,7 @@
         } else if (name === 'NotReadableError') {
           alert('カメラが他のアプリに使用されています。\n他のアプリを閉じてから再試行してください。');
         } else {
-          alert('カメラの起動に失敗しました。\nHTTPS環境でカメラの許可を確認してください。');
+          alert(`カメラを起動できませんでした。(${name || 'Unknown'})\nスマートフォンでお試しください。`);
         }
       }
     }
