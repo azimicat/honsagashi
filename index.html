@@ -788,11 +788,9 @@
           return;
         }
 
-        // EAN-13 に絞り、より粘り強く読むヒントを設定
+        // フォーマット制限はせず ZXing に任せる（Android Chrome との相性問題を回避）
         const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]);
         hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        // 300ms ごとにスキャン（デフォルトは 500ms）
         codeReader = new ZXing.BrowserMultiFormatReader(hints, 300);
 
         // 背面カメラ優先
