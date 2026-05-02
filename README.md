@@ -3,7 +3,7 @@
 ISBNの手打ち入力またはスマホカメラのバーコードスキャンから書籍情報を検索するWebアプリ。  
 GitHub Pages のみで動作する静的構成（サーバー不要・認証不要）。
 
-公開URL: https://www.azimicat.dev/honsagashi/
+公開URL: https://honsagashi.azimicat.dev/
 
 ---
 
